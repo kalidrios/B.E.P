@@ -3,79 +3,79 @@
 [![Luau](https://img.shields.io/badge/Language-Luau-00A2FF?style=flat-square&logo=lua)](https://luau-lang.org/)
 [![Roblox](https://img.shields.io/badge/Platform-Roblox%20Studio-EE3124?style=flat-square&logo=roblox)](https://www.roblox.com/)
 [![Genre](https://img.shields.io/badge/Genre-Destruction%20Simulator-orange?style=flat-square)](#core-loop--game-design)
-[![Architecture](https://img.shields.io/badge/Architecture-Server%20Authoritative%20%7C%20Zero--Physics%20Server-success?style=flat-square)](#arquitetura-de-física-zero-server-lag)
+[![Architecture](https://img.shields.io/badge/Architecture-Server%20Authoritative%20%7C%20Zero--Physics%20Server-success?style=flat-square)](#zero-server-lag-physics-pipeline)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](#)
 
-Motor de alta performance para **Destruction Simulator** no Roblox, construído em Luau. Desenvolvido com foco em escalabilidade e baixa latência para execução estável em dispositivos de baixo desempenho (mobile e PCs modestos), combinando física visual cliente-side, contabilidade de blocos puramente numérica e um ecossistema econômico perpétuo guiado por *Floats* de Skins.
+A high-throughput **Destruction Simulator** engine built with Luau for Roblox. Engineered for scalability, rock-solid server tick rates, and smooth performance on low-end hardware (mobile and budget PCs). It pairs client-side staggered physics debris and purely numerical block accounting with a perpetual, float-driven skin market economy.
 
 ---
 
 ## Core Loop & Game Design
 
 ```
-[ Farm de Blocos ] ──> [ Capacidade da Mochila ] ──> [ Venda (Sell Zone) ] ──> [ Upgrades & Rebirth ]
- (Arma + Mina +          (Dita o ritmo de jogo         (Conversão em Cash        (Reseta armas/áreas,
-  Skin Float Mult)        voltando à base)              + XP c/ Backpack Mult)    preserva Skins e RAP)
+[ Block Farming ] ────> [ Backpack Limit ] ────> [ Sell Zone ] ────────> [ Upgrades & Rebirth ]
+ (Weapon + Mine +        (Sets session pacing     (Converts to Cash +     (Resets weapons/areas,
+  Skin Float Mult)        by returning to base)    XP w/ Backpack Mult)    preserves Skins and RAP)
 ```
 
-### 1. Setup & Farm (Fase de Ação e Retenção)
-- **Retenção Imediata:** Concessão inicial de *StarterBooster* gratuito, retendo o jogador nos primeiros minutos críticos sem fricção de compras.
-- **Armas e Minas:** O jogador destrói estruturas no mapa gerando "Blocos".
-- **Zero-Lag Server:** Os blocos farmados **não são partes físicas no servidor**. São computados como variáveis numéricas atômicas diretamente no estado do jogador.
-- **Weapon Skin Multiplier:** O atributo **Float** da skin equipada na arma multiplica diretamente a taxa de blocos coletados por explosão.
+### 1. Setup & Farm (Action & Retention Phase)
+- **Immediate Retention:** A lightweight introductory modal grants a free *StarterBooster*, maximizing retention during critical early minutes without predatory gamepass prompts.
+- **Weapons and Mines:** Players destroy destructible geometry across zones using primary weapons and deployable mines.
+- **Zero-Lag Server Accounting:** Collected blocks are **never physical server parts**. They are processed purely as atomic numeric values in player data profiles, keeping server memory footprint minimal.
+- **Weapon Skin Multipliers:** The **Float** value of equipped weapon skins dynamically multiplies the block yield generated per detonation.
 
-### 2. Armazenamento (Fase de Controle e Ritmo)
-- A capacidade da **Mochila** limita o armazenamento de blocos, estabelecendo a cadência do loop e incentivando retornos estratégicos à base.
+### 2. Storage (Pacing & Flow Control)
+- The player's **Backpack** capacity defines the maximum block payload, dictating gameplay cadence and requiring strategic returns to the base.
 
-### 3. Venda & Recompensa (Fase de Economia)
-- **Sell Zone:** Descarrega os blocos acumulados e os converte instantaneamente em **Cash** e **XP**.
-- **Backpack Skin Multiplier:** O atributo **Float** da skin equipada na mochila atua com um multiplicador dedicado sobre o **Cash** final recebido.
+### 3. Sell & Reward (Economic Conversion)
+- **Sell Zone:** Instantly liquidates stored blocks into **Cash** and **XP**.
+- **Backpack Skin Multipliers:** The **Float** value of equipped backpack skins acts as a dedicated financial multiplier applied directly to final Cash payouts.
 
-### 4. Reinvestimento & Rebirth (Economia Perpétua & Anti-Inflação)
-- **Upgrades:** Aquisição progressiva de tiers superiores de Armas, Minas e Mochilas.
-- **Rebirth com Preservação de Ativos:** O jogador reinicia o progresso de armas e áreas, mas **mantém 100% de suas Skins**, protegendo seu investimento e o valor de mercado (RAP).
-- **Demanda Contínua das Skins Iniciais:** Para equipar uma skin após o Rebirth, o jogador deve recomprar a arma base correspondente. Isso sustenta a procura de veteranos por skins das primeiras áreas para acelerar novos ciclos.
-- **Ralo de Itens (Item Sink):** O sistema de **Fusão** consome skins excedentes com base em seu peso estatístico, contendo a inflação e assegurando liquidez e valor de mercado sustentáveis.
+### 4. Reinvestment & Rebirth (Perpetual Economy & Anti-Inflation)
+- **Progression Upgrades:** Players reinvest Cash into higher tiers of Weapons, Mines, and Backpacks.
+- **Asset-Preserving Rebirths:** Rebirthing resets tool unlocks and area progression but **permanently preserves 100% of acquired Skins**, safeguarding player time investment and market RAP (Recent Average Price).
+- **Perpetual Demand for Starter Skins:** Equipping a skin post-rebirth requires repurchasing the corresponding base weapon. This creates sustained end-game demand for starter-tier skins, allowing veterans to rapidly accelerate subsequent rebirth cycles.
+- **Deflationary Item Sink:** Excess skins are burned in the **Fusion** system based on statistical weight, mitigating asset inflation while sustaining market scarcity and liquidity.
 
 ---
 
-## Arquitetura de Física (Zero-Server-Lag)
+## Zero-Server-Lag Physics Pipeline
 
-Cenários destrutíveis em larga escala (10.000 a 50.000+ peças) geram gargalos severos de simulação física se processados no servidor. A solução implementada isola completamente a física no cliente:
+Simulating destruction across dense environments (10,000 to 50,000+ parts) creates catastrophic physics bottlenecks when processed server-side. The pipeline completely decouples simulation from the server:
 
 ```
-[Ação de Explosão / Mina]
-           │
-           ▼
-[Query Espacial no Servidor] ──── (GetPartBoundsInRadius / Tag Filter)
-           │
-           ├──> [Servidor] ──> Contabiliza Blocos como Número (Sem física, 0 Server Lag)
-           │
-           └──> [RemoteEvent] ──> Transmite CFrame / Cor para Clientes Próximos
-                                         │
-                                         ▼
-                               [Pipeline Micro-Batch no Cliente]
-                               (Desancoragem escalonada: 30 peças / 0.03s)
-                                         │
-                                         ▼
-                               [Estilhaços / Debris / Áudio]
+[Blast / Detonation Trigger]
+             │
+             ▼
+[Server Spatial Query] ──────── (GetPartBoundsInRadius / Tag Filter)
+             │
+             ├──> [Server State] ──> Numeric Block Increment (No physics, 0 Server Lag)
+             │
+             └──> [RemoteEvent]  ──> Broadcasts CFrame / Color to Nearby Streamed Clients
+                                            │
+                                            ▼
+                                  [Client Micro-Batch Pipeline]
+                                  (Staggered unanchoring: 30 parts / 0.03s)
+                                            │
+                                            ▼
+                                  [Visual Debris / Particles / SFX]
 ```
 
-- **Servidor Leve:** O servidor processa apenas queries espaciais restritas a blocos marcados com `CollectionService`, converte o impacto em blocos numéricos e remove as peças sem inicializar instâncias físicas ativas.
-- **Micro-Batching no Cliente:** Para evitar quedas bruscas de taxa de quadros (FPS) em hardware modesto, os clientes desancoram os estilhaços visuais em lotes fracionados (**30 partes a cada 0.03s**), estabilizando o frame rate.
+- **Server Efficiency:** The server restricts overlap queries strictly to instances tagged via `CollectionService`, converts damage into numeric credits, and removes parts without waking physical collision listeners.
+- **Client Micro-Batching:** To eliminate framerate stutter on mobile and entry-level PCs, visual debris is unanchored in micro-batches (**30 parts every 0.03 seconds**), ensuring smooth framerates under sustained detonation.
 
 ---
 
-## Estrutura do Repositório
+## Repository Structure
 
 ```
-├── docs/                       # Documentação técnica e arquitetura detalhada
-│   ├── ARCHITECTURE.md         # Especificações completas de física, curvas e persistência
+├── docs/                       # Architectural specifications and system documentation
+│   ├── ARCHITECTURE.md         # In-depth physics pipeline, progression curves, and persistence
 │   ├── adr/                    # Architecture Decision Records
-│   └── systems/                # Documentação técnica de subsistemas (Trocas, Inventário, etc.)
-├── ReplicatedStorage/          # Módulos compartilhados, tabelas de dados e eventos remotos
-├── ServerScriptService/        # Serviços autoritários de física, economia e salvamento
-├── StarterGui/                 # Componentes de interface e renderização 3D (ViewportFrames)
-├── StarterPlayer/              # Controladores cliente, micro-batching e câmeras
-└── README.md                   # Documento de apresentação do projeto
+│   └── systems/                # Subsystem specifications (Trading Protocol, Inventory, etc.)
+├── ReplicatedStorage/          # Shared data modules, asset configs, and network definitions
+├── ServerScriptService/        # Authoritative game services (Combat, Economy, Persistence)
+├── StarterGui/                 # Interface components and ViewportFrame 3D rendering
+├── StarterPlayer/              # Client controllers, camera logic, and micro-batch debris
+└── README.md                   # Repository overview and technical summary
 ```
